@@ -1,0 +1,108 @@
+---
+title: "homework3_markdown"
+output: github_document
+date: "2022-10-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(patchwork)
+library(hexbin)
+```
+
+## Problem 2
+
+
+```{r}
+
+accel_df =
+  read_csv("data/accel_data.csv") %>%
+  janitor::clean_names() %>% 
+  pivot_longer(activity_1:activity_1440,
+               names_to = "TimeDel",
+               values_to = "activity") %>% 
+  separate(TimeDel, into = c("delete", "Time")) %>% 
+  select(-delete) %>% 
+  mutate(across(.col = (c("Time")), as.integer)) %>% 
+  mutate(day_type = case_when(day == "Monday" ~ "Weekday", 
+                             day == "Tuesday" ~ "Weekday", 
+                             day == "Wednesday" ~ "Weekday", 
+                             day == "Thursday" ~ "Weekday", 
+                             day == "Friday" ~ "Weekday", 
+                             day == "Saturday" ~ "Weekend", 
+                             day == "Sunday" ~ "Weekend")
+  ) %>% 
+  mutate(day = factor(day, levels = str_c(c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))))
+
+ncol(accel_df)
+```
+
+There are `r ncol(accel_df)` variables: Week (number of the week the data was collected), Day_ID (an ID assigned to the day the data was collected), Day (day of the week the data was collected), Time (minute of the day that the data was collected), Activity (activity during that time point), day_type (if the data was collected on a weekday or weekend). 
+
+```{r}
+accel_df %>% 
+  group_by(day) %>% 
+  summarize(sum_activity = sum(activity))
+
+```
+
+Most activity during the middle and end of the week, with the hgihest activity being on Friday and the lowest on Saturday. 
+
+```{r}
+ggplot(data = accel_df, aes(x = Time, y = activity, color = day)) + 
+  geom_point() + theme(legend.position="bottom") + labs(
+    title = "Accelerometer Acitivity Time By Day",
+    x = "Time of Day",
+    y = "Activity"
+  )
+```
+The highest amount of activity occurred towards the middle of the day, with Friday having a lot of activity in the evening. 
+
+## Problem 3
+
+```{r}
+library(p8105.datasets)
+data("ny_noaa")
+
+ny_noaa =
+  ny_noaa %>% 
+  janitor::clean_names() %>% 
+  separate(date, into = c("year", "month", "day")) %>% 
+  mutate(across(.col = (c("year", "month", "day", "prcp", "snow", "snwd", "tmax", "tmin")), as.numeric)) %>%
+  mutate(prcp = prcp/100, snow = snow/10, snwd = snwd/10, tmax = tmax/10, tmin = tmin/10)
+```
+
+```{r}
+
+temp_p = 
+  ny_noaa %>% 
+  group_by(month) %>% 
+  filter(month == 1 | month == 7, na.rm=TRUE) %>% 
+  mutate(month = case_when(month == 1 ~ "January", month == 7 ~ "July"))
+  
+ggplot(data = temp_p, aes(x = day, y = tmax, color = month)) + geom_point() + facet_grid(. ~ month)
+
+
+```
+
+The average maximum temperature is higher than July than in Januaray, but on some days of the month, it was much warmer in January than the average max temperature in July and much colder some days in July than the average maximum temperature in January. 
+
+
+```{r}
+maxmin_p =
+  ny_noaa %>% 
+  ggplot(aes(x = tmin, y = tmax)) + geom_hex() + theme(legend.position = "none")
+
+
+snow_p = 
+  ny_noaa %>% 
+  group_by(year) %>% 
+  filter(snow > 0 & snow < 100) %>% 
+  ggplot(aes(x = year, y = snow, group = year)) + geom_boxplot() + theme(legend.position = "none")
+
+maxmin_p + snow_p
+
+```
+
